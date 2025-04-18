@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  weather-bot:
+    build: .
+    image: weather-bot:latest
+    container_name: weather-bot
+    env_file:
+      - .env
+    volumes:
+      - ./config:/usr/src/app/config
+      - ./services:/usr/src/app/services
+    restart: unless-stopped
+
+  # redis: # Раскомментировать если будете использовать Redis для хранения состояния
+  #   image: redis:7-alpine
+  #   restart: always
+  #   volumes:
+  #     - redis_data:/data
+
+# volumes:
+#   redis_data:
