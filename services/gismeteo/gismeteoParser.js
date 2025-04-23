@@ -1,3 +1,4 @@
+const moment = require('moment-timezone');
 class GismeteoParser {
     // Основной метод для получения всех данных о погоде с страницы
     static parse($) {
@@ -14,25 +15,27 @@ class GismeteoParser {
 
     // Метод для извлечения времени прогноза
     static extractTimes($) {
-        const currentDate = new Date(); // Текущая дата
-        const currentYear = currentDate.getUTCFullYear(); // Текущий год
-        const currentMonth = currentDate.getUTCMonth(); // Текущий месяц
-        const currentDay = currentDate.getUTCDate(); // Текущий день
-
-        // Получаем элементы времени и преобразуем их в объекты Date
+        const currentMoment = moment().tz('Europe/Moscow');
+        
         return this.getTimeItems($)
             .map((i, el) => {
-                const timeStr = $(el).find('span').text().trim(); // Получаем текст времени
-                if (!/\d{1,2}:\d{2}/.test(timeStr)) return null; // Проверяем на корректный формат времени
-
-                const [hours, minutes] = timeStr.split(':').map(Number); // Разделяем на часы и минуты
-                if (hours > 23 || minutes > 59) return null; // Проверка на допустимые значения
-
-                // Создаем объект Date в формате UTC
-                return new Date(Date.UTC(currentYear, currentMonth, currentDay, hours, minutes));
+                const timeStr = $(el).find('span').text().trim();
+                if (!/\d{1,2}:\d{2}/.test(timeStr)) return null;
+    
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                if (hours > 23 || minutes > 59) return null;
+    
+                // Создаем момент времени с учетом московского часового пояса
+                const date = currentMoment.clone()
+                    .startOf('day')
+                    .hour(hours)
+                    .minute(minutes)
+                    .toDate();
+    
+                return date;
             })
-            .get() // Преобразуем в массив
-            .filter(date => date instanceof Date && !isNaN(date)); // Фильтруем валидные даты
+            .get()
+            .filter(date => date instanceof Date && !isNaN(date));
     }
 
     // Новый метод для извлечения дат прогноза
@@ -63,18 +66,25 @@ class GismeteoParser {
 
     // Метод для извлечения температур воздуха
     static extractTemperatures($) {
-        return $('.widget-row-chart-temperature-air .value temperature-value[value]')
-            .map((i, el) => parseInt($(el).attr('value')) || null) // Извлечение значения температуры
-            .get() // Преобразование в массив
-            .filter(temp => !isNaN(temp)); // Фильтрация нечисловых значений
+        return $('.widget-row-chart-temperature-air .values .value temperature-value[value]')
+            .map((i, el) => {
+                const value = $(el).attr('value');
+                const parsed = parseInt(value, 10);
+                return isNaN(parsed) ? null : parsed;
+            })
+            .get()
+            .filter(temp => temp !== null);
     }
 
-    // Метод для извлечения ощущаемых температур
     static extractFeelsTemperatures($) {
-        return $('.widget-row-chart-temperature-heat-index .value temperature-value[value]')
-            .map((i, el) => parseInt($(el).attr('value')) || null) // Извлечение значения температуры
-            .get() // Преобразование в массив
-            .filter(temp => !isNaN(temp)); // Фильтрация нечисловых значений
+        return $('.widget-row-chart-temperature-heat-index .values .value temperature-value[value]')
+            .map((i, el) => {
+                const value = $(el).attr('value');
+                const parsed = parseInt(value, 10);
+                return isNaN(parsed) ? null : parsed;
+            })
+            .get()
+            .filter(temp => temp !== null);
     }
 
     // Метод для извлечения данных об осадках

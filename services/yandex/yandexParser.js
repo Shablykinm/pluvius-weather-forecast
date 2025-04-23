@@ -157,14 +157,14 @@ class YandexParser {
     static extractTimes($) {
         return $('.timeline-item[data-timestamp]')
             .map((i, el) => {
-                const timestamp = $(el).attr('data-timestamp'); // Получаем timestamp
-                if (!timestamp) return null; // Если нет, возвращаем null
+                const timestamp = $(el).attr('data-timestamp');
+                if (!timestamp) return null;
                 
-                const date = new Date(parseInt(timestamp)); // Преобразуем timestamp в объект Date
-                return date;
+                // Конвертируем timestamp в московское время
+                return moment.tz(parseInt(timestamp), 'Europe/Moscow').toDate();
             })
             .get()
-            .filter(date => !isNaN(date.getTime())); // Фильтруем только валидные даты
+            .filter(date => !isNaN(date.getTime()));
     }
 
     // Парсинг времени обновления

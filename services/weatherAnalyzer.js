@@ -1,5 +1,5 @@
 const moment = require('moment-timezone');
-const DateHelper = require('../helper/dateHelper'); 
+const DateHelper = require('../helper/dateHelper');
 /**
  * Класс для анализа погодных данных. Все методы статические.
  * Предоставляет функционал для определения текущей погоды, осадков и формирования читаемых строк.
@@ -14,27 +14,31 @@ class WeatherAnalyzer {
      * - строкой с температурой (temp)
      */
     static analyze(rawData) {
-        // Конвертируем все временные метки в московское время
-        const convertTimes = (times) => times.map(t => 
-            moment(t).tz('Europe/Moscow').toDate()
-        );
-    
+        const convertToMoscowTime = (date) => {
+            if (date instanceof Date) {
+                return moment(date).tz('Europe/Moscow').toDate();
+            }
+            // Для строковых значений
+            const cleanDateStr = String(date).replace('Z', '');
+            return moment.tz(cleanDateStr, 'YYYY-MM-DDTHH:mm:ss.SSS', 'Europe/Moscow').toDate();
+        };
+
         const processedData = {
             DefaultData: {
                 ...rawData.DefaultData,
-                times: convertTimes(rawData.DefaultData.times),
+                times: rawData.DefaultData.times.map(convertToMoscowTime),
                 temperatures: rawData.DefaultData.temperatures || [],
                 feelsTemperatures: rawData.DefaultData.feelsTemperatures || []
             },
             Precipitation: {
                 ...rawData.Precipitation,
-                times: convertTimes(rawData.Precipitation.times),
+                times: rawData.Precipitation.times.map(convertToMoscowTime),
                 precipitations: rawData.Precipitation.precipitations || []
             }
         };
-    
+
         const currentPeriod = this.findCurrentPeriod(processedData.DefaultData.times);
-        
+
         return {
             ...this.analyzeRain(processedData.Precipitation),
             temp: this.analyzeTemperatures(processedData.DefaultData, currentPeriod).temp,
@@ -55,29 +59,29 @@ class WeatherAnalyzer {
      */
     static findCurrentPeriod(dateTimes) {
         if (!dateTimes?.length) return null;
-    
+
         // Сортируем метки времени на случай несортированных данных
         const sortedTimes = [...dateTimes].sort((a, b) => a - b);
         const now = DateHelper.getDateNow();
-    
+
         // Определяем базовый интервал между прогнозами
         const baseInterval = this.calculateBaseInterval(sortedTimes);
-    
+
         for (let i = 0; i < sortedTimes.length; i++) {
             const start = sortedTimes[i];
-            const end = i < sortedTimes.length - 1 
-                ? sortedTimes[i + 1] 
+            const end = i < sortedTimes.length - 1
+                ? sortedTimes[i + 1]
                 : new Date(start.getTime() + baseInterval);
-    
+
             if (now >= start && now < end) {
-                return { 
+                return {
                     index: i,
                     start: moment(start).tz('Europe/Moscow').toDate(),
                     end: moment(end).tz('Europe/Moscow').toDate()
                 };
             }
         }
-        
+
         // Если текущее время позже последней метки
         const lastTime = sortedTimes[sortedTimes.length - 1];
         return {
@@ -86,22 +90,22 @@ class WeatherAnalyzer {
             end: new Date(lastTime.getTime() + baseInterval)
         };
     }
-    
+
     // Новый метод для расчета базового интервала
     static calculateBaseInterval(times) {
         if (times.length < 2) return 3 * 60 * 60 * 1000; // дефолт 3 часа
-        
+
         const intervals = [];
         for (let i = 1; i < times.length; i++) {
             intervals.push(times[i] - times[i - 1]);
         }
-        
+
         // Берем наиболее частый интервал
         const frequencyMap = intervals.reduce((acc, val) => {
             acc[val] = (acc[val] || 0) + 1;
             return acc;
         }, {});
-    
+
         return Number(Object.entries(frequencyMap)
             .sort((a, b) => b[1] - a[1])[0][0]);
     }
@@ -123,21 +127,21 @@ class WeatherAnalyzer {
         if (lower.includes('дождь') || lower.includes('дожд')) return 'дождь';
         return 'дождь';
     }
-    
+
     static analyzeRain(precipitationData) {
         const { precipitations, times, weatherStates } = precipitationData;
         const now = DateHelper.getDateNow();
         let currentRain = null;
         const futureRains = [];
         const baseInterval = this.calculateBaseInterval(times);
-    
+
         for (let i = 0; i < precipitations.length; i++) {
             const precipitation = precipitations[i];
             if (precipitation > 0) {
                 const start = times[i];
                 const end = times[i + 1] || new Date(start.getTime() + baseInterval);
                 const type = this.getPrecipitationType(weatherStates[i]);
-                
+
                 if (now >= start && now < end) {
                     currentRain = { start, end, precipitation, type };
                 } else if (start > now) {
@@ -145,14 +149,14 @@ class WeatherAnalyzer {
                 }
             }
         }
-    
+
         return {
             isRaining: !!currentRain,
             currentRain: currentRain ? this.formatRainGroup(currentRain) : null,
             futureRains: futureRains.map(r => this.formatRainGroup(r))
         };
     }
-    
+
 
     /**
      * Форматирование данных о дожде в читаемый вид.
@@ -188,28 +192,28 @@ class WeatherAnalyzer {
      * '+20(+18) → +19(+17)°C'
      */
     static analyzeTemperatures(defaultData, currentPeriod) {
-        const getValue = (arr, index) => 
+        const getValue = (arr, index) =>
             (arr && index < arr.length) ? arr[index] : 'N/A';
-    
+
         const currentIndex = currentPeriod?.index ?? 0;
         const nextIndex = currentIndex + 1;
-    
+
         const format = (val) => {
             if (val === 'N/A') return '?';
             return val > 0 ? `+${val}` : val;
         };
-    
+
         const currentTemp = getValue(defaultData.temperatures, currentIndex);
         const nextTemp = getValue(defaultData.temperatures, nextIndex);
         const currentFeels = getValue(defaultData.feelsTemperatures, currentIndex);
         const nextFeels = getValue(defaultData.feelsTemperatures, nextIndex);
-    
+
         return {
             temp: `${format(currentTemp)}(${format(currentFeels)}) → ${format(nextTemp)}(${format(nextFeels)})°C`
         };
     }
 
-    
+
     /**
      * Определяет минимальную и максимальную температуру текущего дня по данным DefaultData.
      * @param {Object} defaultData - Данные с временными метками и температурами.
@@ -223,7 +227,7 @@ class WeatherAnalyzer {
             const temp = defaultData.temperatures[index];
             if (temp != null) dailyTemps[date].push(temp);
         });
-    
+
         const extremes = {};
         Object.entries(dailyTemps).forEach(([date, temps]) => {
             extremes[date] = {

@@ -14,7 +14,7 @@ class WeatherMessenger {
             message += "⏳ Ожидаемый прогноз:\n";
             Object.entries(forecastByDate).forEach(([dateKey, { date, entries }]) => {
                 const extremes = tempExtremes[dateKey] || { min: '?', max: '?' };
-                message += `${date} (🌡️ от ${extremes.min} до ${extremes.max})\n`;
+                message += `${date} (от ${extremes.min} до ${extremes.max})\n`;
                 entries.forEach(({ time, temp }) => {
                     const formattedTime = moment(time).tz('Europe/Moscow').format('HH:mm');
                     const tempStr = temp > 0 ? `+${temp}` : temp;
@@ -101,24 +101,45 @@ class WeatherMessenger {
             .replace(/,?\s?небольшой\s?/gi, '')
             .replace(/\s{2,}/g, ' ');
     }
-
+    static splitIntervalByDays(start, end) {
+        const intervals = [];
+        let currentStart = moment(start).tz('Europe/Moscow');
+        const currentEnd = moment(end).tz('Europe/Moscow');
+    
+        while (currentStart.isBefore(currentEnd)) {
+            const endOfDay = currentStart.clone().endOf('day');
+            const intervalEnd = moment.min(endOfDay, currentEnd);
+    
+            intervals.push({
+                start: currentStart.toDate(),
+                end: intervalEnd.toDate()
+            });
+    
+            currentStart = intervalEnd.clone().add(1, 'second');
+        }
+    
+        return intervals;
+    }
     static getRainMessagePart(rainData) {
         const rains = [];
-        if (rainData.isRaining) rains.push(rainData.currentRain);
-        rains.push(...(rainData.futureRains || []));
-    
-        const grouped = {};
-        rains.forEach(rain => {
-            const startMoment = moment(rain.start).tz('Europe/Moscow');
-            const endMoment = moment(rain.end).tz('Europe/Moscow');
+    if (rainData.isRaining) rains.push(rainData.currentRain);
+    rains.push(...(rainData.futureRains || []));
+
+    const grouped = {};
+    rains.forEach(rain => {
+        const intervals = this.splitIntervalByDays(rain.start, rain.end);
+        intervals.forEach(interval => {
+            const startMoment = moment(interval.start).tz('Europe/Moscow');
+            const endMoment = moment(interval.end).tz('Europe/Moscow');
             
             const dateKey = startMoment.format('DD.MM.YYYY');
             const startTime = startMoment.format('HH:mm');
             const endTime = endMoment.format('HH:mm');
-    
+
             if (!grouped[dateKey]) grouped[dateKey] = [];
             grouped[dateKey].push(`${startTime}-${endTime} (${rain.type})`);
         });
+    });
     
         if (Object.keys(grouped).length === 0) return '☀️ Осадков не ожидается\n';
     
