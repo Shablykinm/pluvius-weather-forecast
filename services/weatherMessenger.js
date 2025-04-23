@@ -95,12 +95,7 @@ class WeatherMessenger {
         });
     }
 
-    // Остальные методы остаются без изменений
-    static cleanWeatherStatus(status) {
-        return status
-            .replace(/,?\s?небольшой\s?/gi, '')
-            .replace(/\s{2,}/g, ' ');
-    }
+    
     static splitIntervalByDays(start, end) {
         const intervals = [];
         let currentStart = moment(start).tz('Europe/Moscow');

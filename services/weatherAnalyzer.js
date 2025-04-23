@@ -119,14 +119,6 @@ class WeatherAnalyzer {
      * - currentRain (форматированные данные текущего дождя)
      * - nextRain (форматированные данные следующего дождя)
      */
-    static getPrecipitationType(weatherState) {
-        if (!weatherState) return 'дождь';
-        const lower = weatherState.toLowerCase();
-        if (lower.includes('град')) return 'град';
-        if (lower.includes('снег')) return 'снег';
-        if (lower.includes('дождь') || lower.includes('дожд')) return 'дождь';
-        return 'дождь';
-    }
 
     static analyzeRain(precipitationData) {
         const { precipitations, times, weatherStates } = precipitationData;
@@ -138,9 +130,11 @@ class WeatherAnalyzer {
         for (let i = 0; i < precipitations.length; i++) {
             const precipitation = precipitations[i];
             if (precipitation > 0) {
+                const weatherState = weatherStates[i];
                 const start = times[i];
                 const end = times[i + 1] || new Date(start.getTime() + baseInterval);
-                const type = this.getPrecipitationType(weatherStates[i]);
+                // Используем очищенный weatherState как тип осадков
+                const type = this.cleanWeatherStatus(weatherState);
 
                 if (now >= start && now < end) {
                     currentRain = { start, end, precipitation, type };
@@ -156,8 +150,12 @@ class WeatherAnalyzer {
             futureRains: futureRains.map(r => this.formatRainGroup(r))
         };
     }
-
-
+    static cleanWeatherStatus(status) {
+        if (!status) return '';
+        return status
+            .replace(/\s{2,}/g, ' ') // Удаляем лишние пробелы
+            .trim();
+    }
     /**
      * Форматирование данных о дожде в читаемый вид.
      * @param {Object} group - Группа осадков
