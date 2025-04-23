@@ -115,22 +115,33 @@ class WeatherAnalyzer {
      * - currentRain (форматированные данные текущего дождя)
      * - nextRain (форматированные данные следующего дождя)
      */
-    static analyzeRain(precipitationData) {
-        const { precipitations, times } = precipitationData;
-        const now = DateHelper.getDateNow();
+    static getPrecipitationType(weatherState) {
+        if (!weatherState) return 'дождь';
+        const lower = weatherState.toLowerCase();
+        if (lower.includes('град')) return 'град';
+        if (lower.includes('снег')) return 'снег';
+        if (lower.includes('дождь') || lower.includes('дожд')) return 'дождь';
+        return 'дождь';
+    }
     
+    static analyzeRain(precipitationData) {
+        const { precipitations, times, weatherStates } = precipitationData;
+        const now = DateHelper.getDateNow();
         let currentRain = null;
         const futureRains = [];
+        const baseInterval = this.calculateBaseInterval(times);
     
         for (let i = 0; i < precipitations.length; i++) {
-            const start = times[i];
-            const end = times[i + 1] || new Date(start.getTime() + this.calculateBaseInterval(times));
-    
-            if (precipitations[i] > 0) {
+            const precipitation = precipitations[i];
+            if (precipitation > 0) {
+                const start = times[i];
+                const end = times[i + 1] || new Date(start.getTime() + baseInterval);
+                const type = this.getPrecipitationType(weatherStates[i]);
+                
                 if (now >= start && now < end) {
-                    currentRain = { start, end, precipitation: precipitations[i] };
+                    currentRain = { start, end, precipitation, type };
                 } else if (start > now) {
-                    futureRains.push({ start, end, precipitation: precipitations[i] });
+                    futureRains.push({ start, end, precipitation, type });
                 }
             }
         }
@@ -141,6 +152,7 @@ class WeatherAnalyzer {
             futureRains: futureRains.map(r => this.formatRainGroup(r))
         };
     }
+    
 
     /**
      * Форматирование данных о дожде в читаемый вид.
@@ -152,9 +164,10 @@ class WeatherAnalyzer {
      */
     static formatRainGroup(group) {
         return {
-            start: this.formatTime(group.start),
-            end: this.formatTime(group.end),
-            precipitation: group.precipitation // убрали .reduce и .toFixed()
+            start: group.start, // сохраняем как Date
+            end: group.end,    // сохраняем как Date
+            precipitation: group.precipitation,
+            type: group.type
         };
     }
 
@@ -203,27 +216,22 @@ class WeatherAnalyzer {
      * @returns {Object} Объект с min и max температурой.
      */
     static getDailyTemperatureExtremes(defaultData) {
-        const now = DateHelper.getDateNow();
-        const currentDayStart = now.clone().startOf('day').toDate();
-        const currentDayEnd = now.clone().add(1, 'day').startOf('day').toDate();
-
-        const indices = [];
-        defaultData.times.forEach((date, index) => {
-            if (date >= currentDayStart && date < currentDayEnd) {
-                indices.push(index);
-            }
+        const dailyTemps = {};
+        defaultData.times.forEach((time, index) => {
+            const date = moment(time).tz('Europe/Moscow').format('YYYY-MM-DD');
+            if (!dailyTemps[date]) dailyTemps[date] = [];
+            const temp = defaultData.temperatures[index];
+            if (temp != null) dailyTemps[date].push(temp);
         });
-
-        const temps = indices
-            .map(i => defaultData.temperatures[i])
-            .filter(t => t != null);
-
-        if (temps.length === 0) return { min: null, max: null };
-
-        return {
-            min: Math.min(...temps),
-            max: Math.max(...temps)
-        };
+    
+        const extremes = {};
+        Object.entries(dailyTemps).forEach(([date, temps]) => {
+            extremes[date] = {
+                min: Math.min(...temps),
+                max: Math.max(...temps)
+            };
+        });
+        return extremes;
     }
 }
 

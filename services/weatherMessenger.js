@@ -6,24 +6,57 @@ class WeatherMessenger {
         const { serviceName, rainData } = data;
         let message = `${serviceName} service: \n`;
     
-        // Добавляем блок ожидаемого прогноза на сегодня
-        const todayForecastEntries = this.getTodayForecastEntries(rainData.weatherData);
-        if (todayForecastEntries.length > 0) {
-            message += `⏳ Ожидаемый прогноз на сегодня:\n${todayForecastEntries.join('\n')}\n`;
+        // Прогноз температуры по дням
+        const forecastByDate = this.getForecastByDate(rainData.weatherData);
+        const tempExtremes = WeatherAnalyzer.getDailyTemperatureExtremes(rainData.weatherData);
+        
+        if (Object.keys(forecastByDate).length > 0) {
+            message += "⏳ Ожидаемый прогноз:\n";
+            Object.entries(forecastByDate).forEach(([dateKey, { date, entries }]) => {
+                const extremes = tempExtremes[dateKey] || { min: '?', max: '?' };
+                message += `${date} (🌡️ от ${extremes.min} до ${extremes.max})\n`;
+                entries.forEach(({ time, temp }) => {
+                    const formattedTime = moment(time).tz('Europe/Moscow').format('HH:mm');
+                    const tempStr = temp > 0 ? `+${temp}` : temp;
+                    message += `${formattedTime} : ${tempStr}\n`;
+                });
+            });
         }
     
-        // Добавляем информацию о дожде
+        // Осадки
         message += this.getRainMessagePart(rainData);
     
-        // Добавляем температурный диапазон
-        const extremes = WeatherAnalyzer.getDailyTemperatureExtremes(rainData.weatherData);
-        if (extremes.min !== null && extremes.max !== null) {
-            message += `🌡️ Температура сегодня от ${extremes.min} до ${extremes.max}`;
-        } else {
-            message += '🌡️ Температурные данные недоступны';
-        }
-    
         return message;
+    }
+    static getForecastByDate(weatherData) {
+        const now = moment().tz('Europe/Moscow');
+        const allowedHours = new Set([9, 12, 15, 18, 21]);
+        
+        const forecasts = weatherData.times
+            .map((time, index) => ({
+                time: moment(time).tz('Europe/Moscow'),
+                temp: weatherData.temperatures[index]
+            }))
+            .filter(({ time, temp }) => 
+                time.isAfter(now) && 
+                allowedHours.has(time.hour()) && 
+                temp != null
+            )
+            .sort((a, b) => a.time - b.time);
+    
+        const grouped = {};
+        forecasts.forEach(({ time, temp }) => {
+            const dateKey = time.format('YYYY-MM-DD');
+            if (!grouped[dateKey]) {
+                grouped[dateKey] = {
+                    date: time.format('DD.MM.YYYY'),
+                    entries: []
+                };
+            }
+            grouped[dateKey].entries.push({ time: time.toDate(), temp });
+        });
+    
+        return grouped;
     }
     static getTodayForecastEntries(weatherData) {
         const now = new Date();
@@ -70,19 +103,31 @@ class WeatherMessenger {
     }
 
     static getRainMessagePart(rainData) {
-        if (rainData.isRaining) {
-            let msg = `🌧️ Сейчас идет дождь (${rainData.currentRain.precipitation} мм)\n`;
-            if (rainData.futureRains.length > 0) {
-                const futureIntervals = rainData.futureRains.map(r => `${r.start}-${r.end}`).join(',\n');
-                msg += `⏳ После текущего ожидается:\n${futureIntervals}\n`;
-            }
-            return msg;
-        }
-        if (rainData.futureRains.length > 0) {
-            const rainIntervals = rainData.futureRains.map(r => `${r.start}-${r.end}`).join(',\n');
-            return `🌧️ Ожидается дождь:\n${rainIntervals}\n`;
-        }
-        return '☀️ Осадков не ожидается\n';
+        const rains = [];
+        if (rainData.isRaining) rains.push(rainData.currentRain);
+        rains.push(...(rainData.futureRains || []));
+    
+        const grouped = {};
+        rains.forEach(rain => {
+            const startMoment = moment(rain.start).tz('Europe/Moscow');
+            const endMoment = moment(rain.end).tz('Europe/Moscow');
+            
+            const dateKey = startMoment.format('DD.MM.YYYY');
+            const startTime = startMoment.format('HH:mm');
+            const endTime = endMoment.format('HH:mm');
+    
+            if (!grouped[dateKey]) grouped[dateKey] = [];
+            grouped[dateKey].push(`${startTime}-${endTime} (${rain.type})`);
+        });
+    
+        if (Object.keys(grouped).length === 0) return '☀️ Осадков не ожидается\n';
+    
+        let msg = '🌧️ Ожидаются осадки:\n';
+        Object.entries(grouped).forEach(([date, intervals]) => {
+            msg += `${date}:\n${intervals.join(',\n')}\n`;
+        });
+    
+        return msg;
     }
 
     static getCurrentPeriodMessagePart(currentPeriod) {
