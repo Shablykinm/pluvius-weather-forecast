@@ -28,9 +28,7 @@ class BaseService {
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--single-process',
-                    '--disable-gpu'
+                    '--disk-cache-size=0'
                 ]
             });
         }
