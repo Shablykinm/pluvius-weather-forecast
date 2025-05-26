@@ -8,11 +8,13 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Устанавливаем зависимости
-RUN npm install 
+RUN npm install --production
 
 # Копируем исходный код
 COPY . .
 
+# Устанавливаем переменные окружения по умолчанию
+ENV NODE_ENV=production
 
 # Запускаем приложение
 CMD ["npm", "start"]
