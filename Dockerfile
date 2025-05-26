@@ -10,7 +10,6 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     ttf-liberation \  # шрифты Liberation
-    fontconfig
 
 # Создаем рабочую директорию
 WORKDIR /usr/src/app
