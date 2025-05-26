@@ -9,8 +9,10 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    fontconfig \ 
-    && cp /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+    fontconfig \
+    tzdata \
+    && cp /usr/share/zoneinfo/Europe/Moscow /etc/localtime \
+    && echo "Europe/Moscow" > /etc/timezone
 
 
 # Настраиваем переменные окружения
