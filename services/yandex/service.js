@@ -51,8 +51,8 @@ class YandexService extends BaseService {
           }
 
           // Отладочное сохранение HTML
-          //const fs = require('fs');
-          //fs.writeFileSync('debug_detail.html', tempPage$.html());
+          const fs = require('fs');
+          fs.writeFileSync('debug_detail.html', tempPage$.html());
           
           return tempPage$;
       } catch (e) {
