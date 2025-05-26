@@ -10,7 +10,6 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     ttf-liberation \  # шрифты Liberation
-    font-noto \       # Шрифты Noto
     fontconfig
 
 # Создаем рабочую директорию
