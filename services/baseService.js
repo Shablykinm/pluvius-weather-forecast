@@ -57,13 +57,11 @@ class BaseService {
                 throw new Error(`HTTP ${response.status()} - ${url}`);
             }
             const content = await page.content();
+
+
             return cheerio.load(content);
         } finally {
-            await page.close(); // Закрываем только страницу, а не браузер
-
-            //Если начинаются проблемы с недопарсингом яндекса - закрывать каждый раз браузер это единственное решение
-            await this.browser.close();
-            this.browser = null;
+            await page.close(); // Закрываем только страницу
 
         }
     }
@@ -71,6 +69,7 @@ class BaseService {
     async destroy() {
         if (this.browser) {
             await this.browser.close();
+            this.browser = null;
         }
     }
     // Метод для форматирования результата

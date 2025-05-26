@@ -9,12 +9,16 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    fontconfig
+    fontconfig \ 
+    && cp /usr/share/zoneinfo/Europe/Moscow /etc/localtime
 
 
-# Настраиваем переменные окружения для Puppeteer
+# Настраиваем переменные окружения
 ENV IS_DOCKER=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    NODE_ENV=production \
+    TZ=Europe/Moscow
 
 # Создаем рабочую директорию
 WORKDIR /usr/src/app
@@ -28,8 +32,6 @@ RUN npm install --production
 # Копируем исходный код
 COPY . .
 
-# Устанавливаем переменные окружения по умолчанию
-ENV NODE_ENV=production
 
 # Запускаем приложение
 CMD ["npm", "start"]
