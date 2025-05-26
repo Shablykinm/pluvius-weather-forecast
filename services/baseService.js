@@ -17,16 +17,18 @@ class BaseService {
             } Safari/537.36`;
     }
     async initBrowser() {
+        const isDocker = process.env.IS_DOCKER === 'true';
         if (!this.browser) {
             this.browser = await puppeteer.launch({
                 headless: 'new',
+                executablePath: isDocker
+                    ? process.env.PUPPETEER_EXECUTABLE_PATH
+                    : puppeteer.executablePath(),
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
                     '--single-process',
                     '--disable-gpu'
                 ]

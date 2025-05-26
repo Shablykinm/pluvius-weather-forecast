@@ -13,9 +13,9 @@ RUN apk add --no-cache \
 
 
 # Настраиваем переменные окружения для Puppeteer
-ENV PUPPETEER_SKIP_DOWNLOAD=true \
+ENV IS_DOCKER=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-    
+
 # Создаем рабочую директорию
 WORKDIR /usr/src/app
 
