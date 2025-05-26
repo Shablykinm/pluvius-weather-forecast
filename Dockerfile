@@ -13,9 +13,6 @@ RUN npm install
 # Копируем исходный код
 COPY . .
 
-# Устанавливаем переменные окружения по умолчанию
-ENV NODE_ENV=production
-ENV PORT=3000
 
 # Запускаем приложение
 CMD ["npm", "start"]
