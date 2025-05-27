@@ -38,6 +38,9 @@ class YandexParser {
         const weatherStates = this.extractWeatherStates($); // Состояние погоды
         const precipitations = this.extractPrecipitations($); // Осадки
 
+        const fs = require('fs');
+        fs.writeFileSync('debug.html', $.html());
+
         // Возвращаем все собранные данные в виде объекта
         return {
             tempTimes: tempTimes,

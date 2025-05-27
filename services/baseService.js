@@ -1,20 +1,26 @@
-const puppeteer = require('puppeteer'); // Импортируем библиотеку Puppeteer для работы с браузером
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');// Импортируем библиотеку Puppeteer для работы с браузером
 const cheerio = require('cheerio'); // Импортируем Cheerio для парсинга HTML-кода
 const WeatherMessenger = require('./weatherMessenger'); // Импорт мессенджера погоды
 const DateHelper = require('../helper/dateHelper');
+
+// Применяем Stealth плагин
+puppeteer.use(StealthPlugin());
 
 class BaseService {
     constructor(config) {
         this.config = config;
         this.headers = {
-            'User-Agent': this.generateRandomUserAgent()
+            'User-Agent': this.generateRandomUserAgent(),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': 'https://yandex.ru/'
         };
         this.browser = null; // Добавляем переменную для хранения браузера
     }
     generateRandomUserAgent() {
         const versions = ['98.0.4758.102', '99.0.4844.51', '100.0.4896.127'];
-        return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${versions[Math.floor(Math.random() * (versions.length - 1))]
-            } Safari/537.36`;
+        return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${versions[Math.floor(Math.random() * versions.length)]} Safari/537.36`;
     }
     async initBrowser() {
         const isDocker = process.env.IS_DOCKER === 'true';
@@ -36,32 +42,35 @@ class BaseService {
 
     async loadPage(url) {
         await this.initBrowser(); // Инициализируем браузер при первом вызове
-        await new Promise(resolve =>
-            setTimeout(resolve, 1000 + Math.random() * 2000)
-        );
+        // Случайная задержка от 4 до 6 секунд
+        await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 2000));
         const page = await this.browser.newPage();
         try {
             await page.setExtraHTTPHeaders(this.headers);
 
-            // await page.setCacheEnabled(false);
-            // await page.setJavaScriptEnabled(true);
-            // // Очистка памяти и кеша перед навигацией
-            // await page.evaluateOnNewDocument(() => {
-            //     Object.defineProperty(navigator, 'webdriver', { get: () => false });
-            // });
+            // Настройки для маскировки под реальный браузер
+            await page.evaluateOnNewDocument(() => {
+                Object.defineProperty(navigator, 'webdriver', { get: () => false });
+            });
+
+            // Переход по URL с ожиданием завершения сетевых запросов
             const response = await page.goto(url, {
-                timeout: 30000
+                timeout: 90000,
+                waitUntil: 'networkidle2'
             });
 
             if (!response.ok()) {
                 throw new Error(`HTTP ${response.status()} - ${url}`);
             }
+
             const content = await page.content();
-
-
             return cheerio.load(content);
         } finally {
-            await page.close(); // Закрываем только страницу
+            await page.close(); // Закрываем только страницу, а не браузер
+
+            //Если начинаются проблемы с недопарсингом яндекса - закрывать каждый раз браузер это единственное решение
+            await this.browser.close();
+            this.browser = null;
 
         }
     }
